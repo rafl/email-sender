@@ -34,6 +34,15 @@ has 'sendmail' => (
   },
 );
 
+has 'sendmail_options' => (
+  traits  => ['Array'],
+  isa     => 'ArrayRef[Str]',
+  default => sub { [] },
+  handles => {
+    sendmail_options => 'elements',
+  },
+);
+
 sub BUILD {
   $_[0]->sendmail; # force population -- rjbs, 2009-06-08
 }
@@ -66,8 +75,11 @@ sub _sendmail_pipe {
   my $prog = $self->sendmail;
 
   my ($first, @args) = $^O eq 'MSWin32'
-           ? qq(| "$prog" -f $envelope->{from} @{$envelope->{to}})
-           : (q{|-}, $prog, '-f', $envelope->{from}, @{$envelope->{to}});
+           ? printf(q(| "%s" %s -f %s %s),
+               $prog,             join(' ', $self->sendmail_options),
+               $envelope->{from}, join(' ', @{$envelope->{to}}))
+           : (q{|-}, $prog, $self->sendmail_options,
+              '-f', $envelope->{from}, @{$envelope->{to}});
 
   no warnings 'exec'; ## no critic
   my $pipe;

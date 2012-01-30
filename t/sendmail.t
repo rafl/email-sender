@@ -1,4 +1,4 @@
-use Test::More tests => 5;
+use Test::More tests => 7;
 use strict;
 $^W = 1;
 
@@ -106,6 +106,40 @@ SKIP:
   );
 
   ok( $return, 'send() succeeded with executable $SENDMAIL' );
+}
+
+SKIP:
+{
+  skip 'Cannot run this test unless current perl is -x', 1 unless -x $^X;
+
+  skip 'Cannot run this test without File::Temp', 2 unless $has_FileTemp;
+  my $tempdir = File::Temp::tempdir(CLEANUP => 1);
+  my $logfile  = File::Spec->catfile($tempdir, 'sendmail.log');
+
+  local $ENV{EMAIL_SENDER_TRANSPORT_SENDMAIL_TEST_LOGDIR} = $tempdir;
+  my $sender = Email::Sender::Transport::Sendmail->new({
+    sendmail => $sendmail_bin,
+    sendmail_options => ['--option-test'],
+  });
+
+  my $return = $sender->send(
+    $email,
+    {
+      to   => [ 'devnull@example.com' ],
+      from => 'devnull@example.biz',
+    }
+  );
+
+  ok( $return, 'send() succeeded with executable $SENDMAIL' );
+
+  if (-f $logfile) {
+    open my $fh, '<', $logfile
+        or die "Cannot read $logfile: $!";
+    my $log = join '', <$fh>;
+    like($log, qr/CLI args: --option-test/, 'log contains sendmail options');
+  } else {
+    fail('cannot check sendmail log contents');
+  }
 }
 
 SKIP:
